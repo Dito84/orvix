@@ -1,0 +1,66 @@
+:host {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+
+    // "Playing from: SharkTV · 1080p · mkv — also found in 2 playlists".
+    // Projected into the hero's action row, which is a flex row, so it claims
+    // a full-width line of its own below the buttons.
+    ::ng-deep .source-caption {
+        flex: 0 0 100%;
+        margin: 10px 0 0;
+        font-size: 0.75rem;
+        line-height: 1.4;
+        color: var(--text-muted);
+
+        .source-caption__source {
+            margin-left: 6px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .source-caption__extra {
+            margin-left: 6px;
+        }
+    }
+
+    ::ng-deep .details__tag--status {
+        color: var(--text-primary);
+        border-color: color-mix(in srgb, var(--accent-color) 28%, transparent);
+        background: linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--accent-color) 12%, transparent) 0%,
+            var(--tag-bg) 100%
+        );
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    ::ng-deep .details__fallback-note {
+        flex: 1 0 100%;
+        margin-bottom: 4px;
+        padding: 14px 16px;
+        border: 1px solid color-mix(in srgb, var(--tag-border) 85%, transparent);
+        border-radius: 14px;
+        background: linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--surface-bg) 86%, transparent) 0%,
+            color-mix(in srgb, var(--tag-bg) 86%, transparent) 100%
+        );
+        color: var(--text-secondary);
+        line-height: 1.5;
+        backdrop-filter: blur(14px);
+    }
+
+    ::ng-deep .details__meta-item--fallback {
+        min-width: min(220px, 100%);
+
+        .value--mono {
+            font-family:
+                ui-monospace, 'SFMono-Regular', 'SF Mono', Menlo, Consolas,
+                monospace;
+            font-size: 0.8125rem;
+            letter-spacing: 0.03em;
+        }
+    }
+}

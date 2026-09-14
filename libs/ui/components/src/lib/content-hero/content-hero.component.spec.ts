@@ -1,0 +1,109 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { ContentHeroComponent } from './content-hero.component';
+
+describe('ContentHeroComponent', () => {
+    let fixture: ComponentFixture<ContentHeroComponent>;
+    const originalResizeObserver = globalThis.ResizeObserver;
+
+    afterEach(() => {
+        Object.defineProperty(globalThis, 'ResizeObserver', {
+            configurable: true,
+            writable: true,
+            value: originalResizeObserver,
+        });
+    });
+
+    beforeEach(async () => {
+        await TestBed.configureTestingModule({
+            imports: [ContentHeroComponent, TranslateModule.forRoot()],
+        }).compileComponents();
+
+        fixture = TestBed.createComponent(ContentHeroComponent);
+        const translate = TestBed.inject(TranslateService);
+        translate.setTranslation('en', { BACK: 'Go back' });
+        translate.use('en');
+    });
+
+    it('renders description content when ResizeObserver is unavailable', () => {
+        Object.defineProperty(globalThis, 'ResizeObserver', {
+            configurable: true,
+            writable: true,
+            value: undefined,
+        });
+
+        fixture.componentRef.setInput('title', 'Fallback_Title');
+        fixture.componentRef.setInput('description', 'Plain description');
+
+        expect(() => fixture.detectChanges()).not.toThrow();
+
+        const host = fixture.nativeElement as HTMLElement;
+        expect(host.textContent).toContain('Fallback Title');
+        expect(host.textContent).toContain('Plain description');
+    });
+
+    it('resets a poster failure when the poster URL changes', () => {
+        fixture.componentRef.setInput('posterUrl', 'broken.jpg');
+        fixture.detectChanges();
+        const first = (fixture.nativeElement as HTMLElement).querySelector(
+            '.poster img[src="broken.jpg"]'
+        ) as HTMLImageElement;
+        first.dispatchEvent(new Event('error'));
+        fixture.detectChanges();
+        expect(
+            (fixture.nativeElement as HTMLElement).querySelector(
+                '.poster img[src="broken.jpg"]'
+            )
+        ).toBeNull();
+
+        fixture.componentRef.setInput('posterUrl', 'replacement.jpg');
+        fixture.detectChanges();
+        expect(
+            (fixture.nativeElement as HTMLElement).querySelector(
+                '.poster img[src="replacement.jpg"]'
+            )
+        ).toBeTruthy();
+    });
+
+    it('keeps an explicit backdrop visible when the poster image fails', () => {
+        fixture.componentRef.setInput('posterUrl', 'broken-poster.jpg');
+        fixture.componentRef.setInput('backdropUrl', 'working-backdrop.jpg');
+        fixture.detectChanges();
+
+        const poster = (fixture.nativeElement as HTMLElement).querySelector(
+            'img[src="broken-poster.jpg"]'
+        ) as HTMLImageElement;
+        poster.dispatchEvent(new Event('error'));
+        fixture.detectChanges();
+
+        expect(
+            (fixture.nativeElement as HTMLElement).querySelector(
+                'img.hero__backdrop-image[src="working-backdrop.jpg"]'
+            )
+        ).toBeTruthy();
+    });
+
+    it('falls back the backdrop independently without hiding a valid poster', () => {
+        fixture.componentRef.setInput('posterUrl', 'working-poster.jpg');
+        fixture.componentRef.setInput('backdropUrl', 'broken-backdrop.jpg');
+        fixture.detectChanges();
+
+        const backdrop = (fixture.nativeElement as HTMLElement).querySelector(
+            'img.hero__backdrop-image'
+        ) as HTMLImageElement | null;
+        expect(backdrop).toBeTruthy();
+        backdrop?.dispatchEvent(new Event('error'));
+        fixture.detectChanges();
+
+        expect(
+            (fixture.nativeElement as HTMLElement).querySelector(
+                '.poster img[src="working-poster.jpg"]'
+            )
+        ).toBeTruthy();
+        expect(
+            (fixture.nativeElement as HTMLElement).querySelector(
+                'img.hero__backdrop-image'
+            )
+        ).toBeNull();
+    });
+});

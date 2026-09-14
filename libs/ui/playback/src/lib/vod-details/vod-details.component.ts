@@ -1,0 +1,394 @@
+import {
+    Component,
+    computed,
+    effect,
+    inject,
+    input,
+    output,
+    signal,
+    untracked,
+} from '@angular/core';
+import { MatIcon } from '@angular/material/icon';
+import { TranslatePipe } from '@ngx-translate/core';
+import { SafePipe } from '@iptvnator/pipes';
+import {
+    PORTAL_EXTERNAL_PLAYBACK,
+    createDiscoverFacetNavigation,
+    createExternalPlaybackButtonState,
+} from '@iptvnator/portal/shared/util';
+import {
+    DetailActionsTemplateDirective,
+    DetailMetaTemplateDirective,
+    DetailTagsTemplateDirective,
+    PortalDetailShellComponent,
+    ViewInPortalActionComponent,
+} from '@iptvnator/ui/components';
+import { Router } from '@angular/router';
+import {
+    ExternalPlayerSession,
+    ResolvedPortalPlayback,
+    TmdbEnrichedCastMember,
+    VodDetailsItem,
+    getVodNumericId,
+    normalizeVodDetails,
+    youtubeEmbedUrl,
+} from '@iptvnator/shared/interfaces';
+import {
+    CrossPortalSimilarItem,
+    CrossPortalSimilarService,
+    DownloadsService,
+    TmdbEnrichmentService,
+} from '@iptvnator/services';
+import type { PlaybackFallbackRequest } from '@iptvnator/playback/util';
+import { PortalInlinePlayerComponent } from '../portal-inline-player/portal-inline-player.component';
+import { createVodDownloadState } from './vod-download-state.util';
+
+/**
+ * Unified VOD details component for both Xtream and Stalker portals.
+ *
+ * Uses discriminated union (VodDetailsItem) for type-safe handling.
+ * All actions are emitted as outputs - parent components handle
+ * store-specific operations (play, favorites, downloads).
+ *
+ * @example
+ * ```html
+ * <app-vod-details
+ *   [item]="vodItem"
+ *   [isFavorite]="isFavorite()"
+ *   [playbackPosition]="position()"
+ *   (playClicked)="onPlay($event)"
+ *   (resumeClicked)="onResume($event)"
+ *   (favoriteToggled)="onToggleFavorite($event)"
+ * />
+ * ```
+ */
+@Component({
+    selector: 'app-vod-details',
+    templateUrl: './vod-details.component.html',
+    styleUrls: ['../styles/detail-view.scss'],
+    imports: [
+        DetailActionsTemplateDirective,
+        DetailMetaTemplateDirective,
+        DetailTagsTemplateDirective,
+        MatIcon,
+        PortalDetailShellComponent,
+        ViewInPortalActionComponent,
+        PortalInlinePlayerComponent,
+        SafePipe,
+        TranslatePipe,
+    ],
+})
+export class VodDetailsComponent {
+    // ============ Inputs ============
+
+    /** VOD item with discriminated union type */
+    readonly item = input.required<VodDetailsItem>();
+    readonly playbackSessionKey = input.required<string>();
+
+    /** Whether this item is in favorites (managed by parent) */
+    readonly isFavorite = input<boolean>(false);
+
+    /** Playback position in seconds for resume feature (managed by parent) */
+    readonly playbackPosition = input<number | null>(null);
+
+    /** Inline playback payload for embedded players (managed by parent) */
+    readonly inlinePlayback = input<ResolvedPortalPlayback | null>(null);
+
+    /** Active external playback session for launch state */
+    readonly externalPlayback = input<ExternalPlayerSession | null>(null);
+
+    /** Provider detail handoff hides local/download presentation only. */
+    readonly providerOnly = input(false);
+
+    // ============ Outputs ============
+
+    /** Emitted when play button is clicked */
+    readonly playClicked = output<VodDetailsItem>();
+
+    /** Emitted when resume button is clicked (includes position) */
+    readonly resumeClicked = output<{
+        item: VodDetailsItem;
+        positionSeconds: number;
+    }>();
+
+    /** Emitted when favorite toggle is clicked */
+    readonly favoriteToggled = output<{
+        item: VodDetailsItem;
+        isFavorite: boolean;
+    }>();
+
+    /** Emitted when back button is clicked */
+    readonly backClicked = output<void>();
+
+    /** Emitted when download is requested (parent handles URL construction) */
+    readonly downloadRequested = output<VodDetailsItem>();
+
+    /** Emitted when inline playback position changes */
+    readonly inlineTimeUpdated = output<{
+        currentTime: number;
+        duration: number;
+    }>();
+
+    /** Emitted when the inline player should be closed */
+    readonly inlinePlaybackClosed = output<void>();
+
+    /** Emitted when the stream url is copied */
+    readonly streamUrlCopied = output<void>();
+
+    /** Emitted when the inline player requests MPV/VLC fallback */
+    readonly inlineExternalFallbackRequested =
+        output<PlaybackFallbackRequest>();
+
+    // ============ Services ============
+
+    private readonly downloadsService = inject(DownloadsService);
+    private readonly crossPortalSimilar = inject(CrossPortalSimilarService);
+    private readonly externalPlaybackActions = inject(PORTAL_EXTERNAL_PLAYBACK);
+    private readonly router = inject(Router);
+
+    // ============ Computed State ============
+
+    /** Whether running in Electron (downloads available) */
+    readonly isElectron = computed(() => this.downloadsService.isAvailable());
+
+    /** Normalized metadata for display */
+    readonly normalizedMeta = computed(() => {
+        return normalizeVodDetails(this.item());
+    });
+
+    readonly trailerEmbedUrl = computed(() =>
+        youtubeEmbedUrl(this.normalizedMeta().youtubeTrailer)
+    );
+
+    /**
+     * TMDB recommendations found in the user's OTHER portals (batched DB
+     * match, Electron only). Loaded async — the section appears when
+     * resolved; staleness-guarded against item changes in flight.
+     */
+    readonly similarInPortals = signal<CrossPortalSimilarItem[]>([]);
+
+    private readonly loadSimilarInPortals = effect(() => {
+        const meta = this.normalizedMeta();
+        const recommendations = meta.tmdbRecommendations;
+        untracked(() => {
+            this.similarInPortals.set([]);
+            if (
+                !recommendations?.length ||
+                !this.crossPortalSimilar.isAvailable
+            ) {
+                return;
+            }
+            void this.crossPortalSimilar
+                .matchRecommendations(recommendations, 'movie')
+                .then((items) => {
+                    if (
+                        this.normalizedMeta().tmdbRecommendations ===
+                        recommendations
+                    ) {
+                        this.similarInPortals.set(items);
+                    }
+                });
+        });
+    });
+
+    openSimilarInPortals(item: CrossPortalSimilarItem): void {
+        void this.router.navigate(this.crossPortalSimilar.buildLink(item));
+    }
+
+    /** Whether there's a playback position to resume from */
+    readonly hasPlaybackPosition = computed(() => {
+        const pos = this.playbackPosition();
+        return pos !== null && pos > 0;
+    });
+
+    /** Formatted playback position (e.g., "12:34" or "1:23:45") */
+    readonly formattedPosition = computed(() => {
+        const pos = this.playbackPosition();
+        if (!pos || pos <= 0) return '';
+
+        const hours = Math.floor(pos / 3600);
+        const minutes = Math.floor((pos % 3600) / 60);
+        const seconds = Math.floor(pos % 60);
+
+        if (hours > 0) {
+            return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    });
+
+    private readonly downloadState = createVodDownloadState(
+        this.downloadsService,
+        this.item
+    );
+    readonly isDownloaded = computed(
+        () => !this.providerOnly() && this.downloadState.isDownloaded()
+    );
+    readonly isDownloading = computed(
+        () => !this.providerOnly() && this.downloadState.isDownloading()
+    );
+    readonly isPausedDownload = computed(
+        () => !this.providerOnly() && this.downloadState.isPausedDownload()
+    );
+
+    private readonly externalButton = createExternalPlaybackButtonState({
+        session: this.externalPlayback,
+        playlistId: computed(() => this.item().playlistId),
+        contentId: computed(() => getVodNumericId(this.item())),
+    });
+    readonly matchedExternalPlayback = this.externalButton.matchedSession;
+    readonly externalPrimaryLabel = this.externalButton.primaryLabel;
+    readonly externalPrimaryIcon = this.externalButton.primaryIcon;
+    readonly isExternalLaunchPending = this.externalButton.isLaunchPending;
+    readonly isExternalStopAction = this.externalButton.isStopAction;
+    readonly externalPrimaryButtonState = this.externalButton.buttonState;
+    readonly isOfflinePrimary = computed(
+        () =>
+            this.isDownloaded() && this.externalPrimaryButtonState() === 'idle'
+    );
+
+    // ============ Actions ============
+
+    /** Handle play button click */
+    onPlay(): void {
+        this.playClicked.emit(this.item());
+    }
+
+    async onPrimaryAction(): Promise<void> {
+        if (this.isExternalStopAction()) {
+            try {
+                await this.stopExternalPlayback();
+            } catch {
+                // The dock stays visible when process teardown is unconfirmed.
+            }
+            return;
+        }
+
+        if (this.isDownloaded()) {
+            await this.playFromLocal();
+            return;
+        }
+
+        this.onProviderAction();
+    }
+
+    onProviderAction(): void {
+        if (this.hasPlaybackPosition()) {
+            this.onResume();
+            return;
+        }
+
+        this.onPlay();
+    }
+
+    /** Handle resume button click */
+    onResume(): void {
+        const pos = this.playbackPosition();
+        if (pos && pos > 0) {
+            this.resumeClicked.emit({
+                item: this.item(),
+                positionSeconds: pos,
+            });
+        }
+    }
+
+    /** Handle favorite toggle - emits the desired new state */
+    toggleFavorite(): void {
+        this.favoriteToggled.emit({
+            item: this.item(),
+            isFavorite: !this.isFavorite(),
+        });
+    }
+
+    /** Handle back navigation - emit event for parent to handle */
+    openActor(member: TmdbEnrichedCastMember): void {
+        if (!member.tmdbPersonId) {
+            return;
+        }
+        const item = this.item();
+        const basePath =
+            item.type === 'stalker'
+                ? '/workspace/stalker'
+                : '/workspace/xtreams';
+        void this.router.navigate([
+            basePath,
+            item.playlistId,
+            'actor',
+            member.tmdbPersonId,
+        ]);
+    }
+
+    goBack(): void {
+        this.backClicked.emit();
+    }
+
+    /** Clickable year/genre/country chips (Discover pages) */
+    private readonly tmdbEnrichment = inject(TmdbEnrichmentService);
+
+    readonly discover = createDiscoverFacetNavigation(() => {
+        const item = this.item();
+        // Discover reads its results from TMDB, so a chip must not offer a
+        // page that enrichment cannot fill
+        return item.playlistId && this.tmdbEnrichment.isEnabled()
+            ? {
+                  portal: item.type === 'stalker' ? 'stalker' : 'xtream',
+                  // Stalker embedded-VOD series render here but are matched
+                  // as tv, so the merge's verdict decides — not the route
+                  mediaType: this.normalizedMeta().tmdbMediaType ?? 'movie',
+                  playlistId: item.playlistId,
+              }
+            : null;
+    });
+
+    /** Handle download request */
+    onDownload(): void {
+        this.downloadRequested.emit(this.item());
+    }
+
+    /** Resume the paused download of this VOD */
+    async resumePausedDownload(): Promise<void> {
+        const item = this.item();
+        await this.downloadsService.resumeDownloadByContent(
+            getVodNumericId(item),
+            item.playlistId,
+            'vod'
+        );
+    }
+
+    onInlineTimeUpdate(event: { currentTime: number; duration: number }): void {
+        this.inlineTimeUpdated.emit(event);
+    }
+
+    closeInlinePlayback(): void {
+        this.inlinePlaybackClosed.emit();
+    }
+
+    onStreamUrlCopied(): void {
+        this.streamUrlCopied.emit();
+    }
+
+    onInlineExternalFallbackRequested(request: PlaybackFallbackRequest): void {
+        this.inlineExternalFallbackRequested.emit(request);
+    }
+
+    async stopExternalPlayback(): Promise<void> {
+        await this.externalPlaybackActions.closeSession(
+            this.matchedExternalPlayback()
+        );
+    }
+
+    /** Play from local downloaded file */
+    async playFromLocal(): Promise<void> {
+        const item = this.item();
+        const vodId = getVodNumericId(item);
+
+        const filePath = this.downloadsService.getDownloadedFilePath(
+            vodId,
+            item.playlistId,
+            'vod'
+        );
+
+        if (filePath) {
+            await this.downloadsService.playDownload(filePath);
+        }
+    }
+}

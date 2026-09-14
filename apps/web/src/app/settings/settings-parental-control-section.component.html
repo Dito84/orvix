@@ -1,0 +1,199 @@
+<section class="settings-group" id="parental-control">
+    <header class="settings-group__header">
+        <div class="settings-group__header-icon">
+            <mat-icon>lock</mat-icon>
+        </div>
+        <div class="settings-group__header-text">
+            <h3>{{ 'SETTINGS.NAV_PARENTAL_CONTROL' | translate }}</h3>
+            <p>{{ 'PARENTAL_CONTROL.SUBTITLE' | translate }}</p>
+        </div>
+    </header>
+
+    <div class="setting-item">
+        <div class="setting-item__meta">
+            <h4>{{ 'PARENTAL_CONTROL.ENABLED_LABEL' | translate }}</h4>
+            <p>
+                {{
+                    (enabled()
+                        ? 'PARENTAL_CONTROL.STATUS_ON'
+                        : 'PARENTAL_CONTROL.STATUS_OFF'
+                    ) | translate
+                }}
+            </p>
+        </div>
+        <div class="setting-item__control">
+            <mat-slide-toggle [checked]="enabled()" disabled>
+            </mat-slide-toggle>
+        </div>
+    </div>
+
+    <div class="setting-item setting-item--full-control">
+        <div class="setting-item__meta">
+            <h4>
+                {{
+                    (hasPin()
+                        ? 'PARENTAL_CONTROL.CHANGE_PIN_TITLE'
+                        : 'PARENTAL_CONTROL.SET_PIN_TITLE'
+                    ) | translate
+                }}
+            </h4>
+        </div>
+        <div class="setting-item__control parental-control-pin-form">
+            @if (hasPin()) {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>{{
+                        'PARENTAL_CONTROL.CURRENT_PIN' | translate
+                    }}</mat-label>
+                    <input
+                        matInput
+                        #currentPinInput
+                        type="password"
+                        inputmode="numeric"
+                        maxlength="8"
+                        autocomplete="off"
+                    />
+                </mat-form-field>
+            }
+
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>{{
+                    'PARENTAL_CONTROL.NEW_PIN' | translate
+                }}</mat-label>
+                <input
+                    matInput
+                    #newPinInput
+                    type="password"
+                    inputmode="numeric"
+                    maxlength="8"
+                    autocomplete="off"
+                />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>{{
+                    'PARENTAL_CONTROL.CONFIRM_PIN' | translate
+                }}</mat-label>
+                <input
+                    matInput
+                    #confirmPinInput
+                    type="password"
+                    inputmode="numeric"
+                    maxlength="8"
+                    autocomplete="off"
+                />
+            </mat-form-field>
+
+            <button
+                mat-flat-button
+                color="primary"
+                [disabled]="isSaving()"
+                (click)="onSavePin()"
+            >
+                {{
+                    (hasPin()
+                        ? 'PARENTAL_CONTROL.UPDATE_PIN_BUTTON'
+                        : 'PARENTAL_CONTROL.SET_PIN_BUTTON'
+                    ) | translate
+                }}
+            </button>
+
+            @if (saveError() === 'invalid') {
+                <p class="parental-control-error">
+                    {{ 'PARENTAL_CONTROL.ERROR_INVALID_PIN' | translate }}
+                </p>
+            }
+            @if (saveError() === 'mismatch') {
+                <p class="parental-control-error">
+                    {{ 'PARENTAL_CONTROL.ERROR_PIN_MISMATCH' | translate }}
+                </p>
+            }
+            @if (saveError() === 'wrong-current') {
+                <p class="parental-control-error">
+                    {{
+                        'PARENTAL_CONTROL.ERROR_WRONG_CURRENT_PIN' | translate
+                    }}
+                </p>
+            }
+            @if (pinSavedJustNow()) {
+                <p class="parental-control-success">
+                    {{ 'PARENTAL_CONTROL.PIN_SAVED' | translate }}
+                </p>
+            }
+        </div>
+    </div>
+
+    @if (enabled()) {
+        <div class="setting-item">
+            <div class="setting-item__meta">
+                <h4>{{ 'PARENTAL_CONTROL.DISABLE_TITLE' | translate }}</h4>
+            </div>
+            <div class="setting-item__control parental-control-pin-form">
+                <mat-form-field
+                    appearance="outline"
+                    subscriptSizing="dynamic"
+                >
+                    <mat-label>{{
+                        'PARENTAL_CONTROL.CURRENT_PIN' | translate
+                    }}</mat-label>
+                    <input
+                        matInput
+                        #disablePinInput
+                        type="password"
+                        inputmode="numeric"
+                        maxlength="8"
+                        autocomplete="off"
+                    />
+                </mat-form-field>
+                <button mat-stroked-button color="warn" (click)="onDisable()">
+                    {{ 'PARENTAL_CONTROL.DISABLE_BUTTON' | translate }}
+                </button>
+            </div>
+        </div>
+    }
+
+    <div class="setting-item setting-item--full-control">
+        <div class="setting-item__meta">
+            <h4>{{ 'PARENTAL_CONTROL.KEYWORDS_TITLE' | translate }}</h4>
+            <p>{{ 'PARENTAL_CONTROL.KEYWORDS_HINT' | translate }}</p>
+        </div>
+        <div class="setting-item__control">
+            <mat-form-field
+                appearance="outline"
+                subscriptSizing="dynamic"
+                class="parental-control-keywords-field"
+            >
+                <textarea
+                    matInput
+                    rows="6"
+                    spellcheck="false"
+                    [value]="keywordsDraft()"
+                    (input)="onKeywordsInput($any($event.target).value)"
+                ></textarea>
+            </mat-form-field>
+            <div class="parental-control-keywords-actions">
+                <button mat-button (click)="onResetKeywords()">
+                    {{
+                        'PARENTAL_CONTROL.RESTORE_DEFAULT_KEYWORDS'
+                            | translate
+                    }}
+                </button>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    (click)="onSaveKeywords()"
+                >
+                    {{ 'PARENTAL_CONTROL.SAVE_KEYWORDS_BUTTON' | translate }}
+                </button>
+            </div>
+            @if (keywordsSavedJustNow()) {
+                <p class="parental-control-success">
+                    {{ 'PARENTAL_CONTROL.KEYWORDS_SAVED' | translate }}
+                </p>
+            }
+        </div>
+    </div>
+
+    <p class="parental-control-hint-text">
+        {{ 'PARENTAL_CONTROL.HOW_TO_HIDE_ADULT_HINT' | translate }}
+    </p>
+</section>

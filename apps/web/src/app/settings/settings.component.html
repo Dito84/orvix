@@ -1,0 +1,185 @@
+<div class="settings-container" data-test-id="settings-container">
+    <form
+        [formGroup]="settingsForm"
+        (ngSubmit)="onSubmit()"
+        class="settings-layout"
+        novalidate
+    >
+        <!-- Page-level "Settings" h1 intentionally removed: the left rail
+             already labels the page "Settings" (sg-nav-title), and each
+             section below provides its own h3 + subtitle. -->
+        <span class="visually-hidden" data-test-id="settings-page-header">
+            {{ 'SETTINGS.TITLE' | translate }}
+        </span>
+
+        <div class="settings-content">
+            <!-- Only the routed section renders. The parent keeps the shared
+                 form alive across section switches, so edits staged on one
+                 page survive a visit to another. -->
+            @switch (activeSection()) {
+                @case ('playback') {
+                    <app-settings-playback-section
+                        [form]="settingsForm"
+                        [players]="players()"
+                        [streamFormatEnum]="streamFormatEnum"
+                        [isDesktop]="isDesktop"
+                        [supportsManagedExternalPlayers]="
+                            supportsManagedExternalPlayers
+                        "
+                        [supportsExternalPlayerPathSettings]="
+                            supportsExternalPlayerPathSettings
+                        "
+                        [supportsVodMultiSource]="supportsVodMultiSource"
+                        [frameCopyAvailable]="embeddedMpv.frameCopyAvailable()"
+                        [frameCopyActive]="embeddedMpv.frameCopyActive()"
+                        (selectRecordingFolder)="selectRecordingFolder()"
+                    />
+                }
+                @case ('epg') {
+                    <app-settings-epg-section
+                        [form]="settingsForm"
+                        [epgUrl]="form.epgUrl"
+                        [isClearingEpgData]="epg.isClearing()"
+                        [canBrowseFiles]="epg.supportsFilePicker"
+                        [epgViewModeOptions]="epgViewModeOptions"
+                        (refreshEpg)="epg.refresh($event)"
+                        (browseEpgSource)="epg.browse($event)"
+                        (removeEpgSource)="form.removeEpgSource($event)"
+                        (addEpgSource)="form.addEpgSource()"
+                        (refreshAllEpg)="epg.refreshAll()"
+                        (clearEpgData)="epg.clear()"
+                        (selectEpgViewMode)="form.selectEpgViewMode($event)"
+                    />
+                }
+                @case ('dashboard') {
+                    <app-settings-dashboard-section [form]="settingsForm" />
+                }
+                @case ('parental-control') {
+                    <app-settings-parental-control-section
+                        [enabled]="parentalControl.enabled()"
+                        [hasPin]="parentalControl.hasPin()"
+                        [keywordsText]="parentalControl.keywordsText()"
+                        [isSaving]="parentalControl.isSaving()"
+                        [saveError]="parentalControl.saveError()"
+                        [pinSavedJustNow]="parentalControl.pinSavedJustNow()"
+                        [keywordsSavedJustNow]="
+                            parentalControl.keywordsSavedJustNow()
+                        "
+                        (savePin)="
+                            parentalControl.savePin(
+                                $event.currentPin,
+                                $event.newPin,
+                                $event.confirmPin
+                            )
+                        "
+                        (disable)="parentalControl.disable($event)"
+                        (saveKeywords)="parentalControl.saveKeywords($event)"
+                        (resetKeywords)="
+                            parentalControl.resetKeywordsToDefault()
+                        "
+                    />
+                }
+                @case ('remote-control') {
+                    <app-settings-remote-control-section
+                        [form]="settingsForm"
+                        [localIpAddresses]="remoteControl.localIpAddresses()"
+                        [visibleQrCodeIp]="remoteControl.visibleQrCodeIp()"
+                        (toggleQrCode)="remoteControl.toggleQrCode($event)"
+                    />
+                }
+                @case ('tmdb') {
+                    <app-settings-tmdb-section [form]="settingsForm" />
+                }
+                @case ('backup') {
+                    <app-settings-backup-section
+                        [isPwa]="isPwa"
+                        [isRemovingAllPlaylists]="
+                            playlistReset.isRemovingAllPlaylists()
+                        "
+                        [isExportingData]="backup.isExportingData()"
+                        (importData)="importData()"
+                        (exportData)="exportData()"
+                    />
+                }
+                @case ('reset') {
+                    <app-settings-reset-section
+                        [isRemovingAllPlaylists]="
+                            playlistReset.isRemovingAllPlaylists()
+                        "
+                        [canRemoveAllPlaylists]="playlistReset.canRemoveAll()"
+                        [playlistDeleteSummary]="playlistReset.deleteSummary()"
+                        [removeAllProgressLabel]="
+                            playlistReset.removeAllProgressLabel()
+                        "
+                        (removeAll)="removeAll()"
+                    />
+                }
+                @case ('about') {
+                    <app-settings-about-section
+                        [isDesktop]="isDesktop"
+                        [version]="appUpdate.version()"
+                        [buildCommit]="buildCommit"
+                        [updateMessage]="appUpdate.updateMessage()"
+                        [appUpdateStatus]="appUpdate.status()"
+                        (checkForAppUpdate)="appUpdate.checkForAppUpdate()"
+                        (downloadAppUpdate)="appUpdate.downloadAppUpdate()"
+                        (installAppUpdate)="appUpdate.installAppUpdate()"
+                        (openManualAppUpdate)="appUpdate.openManualAppUpdate()"
+                        (openAppUpdateReleaseNotes)="
+                            appUpdate.openReleaseNotes()
+                        "
+                    />
+                }
+                @default {
+                    <app-settings-general-section
+                        [form]="settingsForm"
+                        [languageEnum]="languageEnum"
+                        [themeOptions]="themeOptions"
+                        [coverSizeOptions]="coverSizeOptions"
+                        [startupBehaviorOptions]="startupBehaviorOptions"
+                        [startupWindowModeOptions]="startupWindowModeOptions"
+                        [supportsPortalConnectivityGuard]="
+                            supportsPortalConnectivityGuard
+                        "
+                        [supportsStartupWindowMode]="supportsStartupWindowMode"
+                        (selectTheme)="form.selectTheme($event)"
+                        (selectCoverSize)="form.selectCoverSize($event)"
+                    />
+                }
+            }
+        </div>
+
+        <!-- Discord-style unsaved-changes bar: appears the moment any edit
+             makes the form dirty — on whichever section page — and vanishes
+             once saved or discarded. It replaces the always-visible footer
+             Save button of the single-scroll layout. -->
+        @if (!settingsForm.pristine) {
+            <footer class="unsaved-bar" data-test-id="settings-unsaved-bar">
+                <div class="unsaved-bar__message">
+                    <mat-icon>edit</mat-icon>
+                    <span>{{ 'SETTINGS.UNSAVED_CHANGES' | translate }}</span>
+                </div>
+                <div class="unsaved-bar__actions">
+                    <button
+                        mat-button
+                        type="button"
+                        (click)="discardChanges()"
+                        data-test-id="discard-settings"
+                    >
+                        {{ 'SETTINGS.DISCARD_CHANGES' | translate }}
+                    </button>
+                    <button
+                        mat-flat-button
+                        type="submit"
+                        class="settings-save-button"
+                        [disabled]="!settingsForm.valid"
+                        data-test-id="save-settings"
+                    >
+                        <mat-icon>save</mat-icon>
+                        {{ 'SETTINGS.SAVE_CHANGES' | translate }}
+                    </button>
+                </div>
+            </footer>
+        }
+    </form>
+</div>
