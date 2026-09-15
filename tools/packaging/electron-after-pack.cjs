@@ -40,7 +40,7 @@ function copyEmbeddedMpvNativeOutput(
         'native'
     );
 
-    if (!fs.existsSync(sourceDir)) {
+    if (!fs.existsSync(path.join(sourceDir, 'embedded_mpv.node'))) {
         return;
     }
 
