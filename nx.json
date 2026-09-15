@@ -72,7 +72,7 @@
                     "target": "build-e2e"
                 },
                 {
-                    "projects": ["stalker-mock-server", "xtream-mock-server"],
+                    "projects": ["stalker-mock-server"],
                     "target": "serve"
                 }
             ]
