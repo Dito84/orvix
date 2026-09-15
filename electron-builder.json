@@ -21,7 +21,7 @@
     "publish": [
         {
             "provider": "github",
-            "owner": "YOUR-USERNAME",
+            "owner": "Dito84",
             "repo": "orvix"
         }
     ],
@@ -144,8 +144,8 @@
         "desktop": {
             "entry": {
                 "X-AppImage-Name": "Orvix",
-                "X-AppImage-Homepage": "https://github.com/YOUR-USERNAME/orvix",
-                "X-AppImage-UpdateURL": "https://github.com/YOUR-USERNAME/orvix"
+                "X-AppImage-Homepage": "https://github.com/Dito84/orvix",
+                "X-AppImage-UpdateURL": "https://github.com/Dito84/orvix"
             }
         }
     },

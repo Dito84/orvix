@@ -6,10 +6,10 @@
     },
     "license": "MIT",
     "description": "Orvix — IPTV player application, based on IPTVnator.",
-    "homepage": "https://github.com/YOUR-USERNAME/orvix",
+    "homepage": "https://github.com/Dito84/orvix",
     "author": {
-        "name": "YOUR-NAME",
-        "email": "YOUR-EMAIL"
+        "name": "Aldo Cruz",
+        "email": "tu-correo@ejemplo.com"
     },
     "keywords": [
         "angular",

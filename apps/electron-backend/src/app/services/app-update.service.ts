@@ -8,9 +8,9 @@ import {
 } from '@iptvnator/shared/interfaces';
 
 export const APP_UPDATE_MANUAL_DOWNLOAD_URL =
-    'https://github.com/YOUR-USERNAME/orvix/releases/latest';
+    'https://github.com/Dito84/orvix/releases/latest';
 const GITHUB_RELEASES_API_URL =
-    'https://api.github.com/repos/YOUR-USERNAME/orvix/releases';
+    'https://api.github.com/repos/Dito84/orvix/releases';
 const GITHUB_RELEASES_PER_PAGE = 10;
 
 interface AppUpdateAppAdapter {
