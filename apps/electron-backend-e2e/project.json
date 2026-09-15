@@ -6,7 +6,6 @@
     "implicitDependencies": [
         "electron-backend",
         "stalker-mock-server",
-        "xtream-mock-server"
     ],
     "targets": {
         "e2e": {
