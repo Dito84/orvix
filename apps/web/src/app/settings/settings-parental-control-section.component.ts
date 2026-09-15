@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import {
     Component,
+	OnInit,
     ElementRef,
     input,
     output,
@@ -32,7 +33,7 @@ import type { ParentalControlSaveError } from './settings-parental-control.facad
     encapsulation: ViewEncapsulation.None,
     styles: [':host { display: contents; }'],
 })
-export class SettingsParentalControlSectionComponent {
+export class SettingsParentalControlSectionComponent implements OnInit {
     readonly enabled = input.required<boolean>();
     readonly hasPin = input.required<boolean>();
     readonly keywordsText = input.required<string>();
@@ -67,9 +68,9 @@ export class SettingsParentalControlSectionComponent {
     @ViewChild('disablePinInput')
     private readonly disablePinInput?: ElementRef<HTMLInputElement>;
 
-    constructor() {
-        this.keywordsDraft.set(this.keywordsText());
-    }
+    ngOnInit(): void {
+    this.keywordsDraft.set(this.keywordsText());
+   }
 
     onSavePin(): void {
         const currentPin = this.currentPinInput?.nativeElement.value ?? '';
